@@ -8,7 +8,7 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3001;
 app.set('trust proxy', 1);
 
 const allowedOrigins = [
-  'https://reforge-backend-final.onrender.com',
+  'https://reforge-backend-nrnd.onrender.com',
   /^https:\/\/[a-z0-9-]+\.replit\.dev$/,
   /^https:\/\/[a-z0-9-]+\.replit\.app$/,
   /^exp:\/\/.+/,
@@ -160,169 +160,62 @@ app.post('/api/chat', chatLimiter, async (req, res) => {
 });
 
 app.post('/api/system-prompt', apiLimiter, (req, res) => {
-  const { onboardingData, progressData } = req.body;
+  const { onboardingData } = req.body;
   
   if (!onboardingData) {
     return res.status(400).json({ error: 'Onboarding data required' });
   }
 
-  const coachingStyle = Number(onboardingData.coachingStyle) || 5;
-  const userName = onboardingData.name || 'there';
-
-  let stylePersona = '';
-  let styleLabel = '';
+  const coachingStyle = onboardingData.coachingStyle;
   
+  let styleDescription = '';
   if (coachingStyle >= 1 && coachingStyle <= 3) {
-    styleLabel = 'gentle';
-    stylePersona = `You are a warm, encouraging, patient, and emotionally validating coach. You:
-- Normalize setbacks and focus on small wins
-- Use softer language without being patronizing
-- Celebrate effort and consistency over perfection
-- Provide specific training guidance (exercises, sets, reps, RPE, rest) in a supportive way
-- Give simple, practical nutrition advice (calories/macros, meal structure) without overwhelm
-- Emphasize sustainable progress and self-compassion
-- Never shame or use guilt as motivation`;
+    styleDescription = `You are VERY SUPPORTIVE and empathetic. Use warm, encouraging language. Celebrate small wins. Be gentle with setbacks. Focus on positive reinforcement and emotional support. Use phrases like "I'm proud of you," "That's totally understandable," and "You're doing great." Be patient and understanding.`;
   } else if (coachingStyle >= 4 && coachingStyle <= 7) {
-    styleLabel = 'balanced';
-    stylePersona = `You are clear, straightforward, respectful, and balanced. You:
-- Call out inconsistencies without insulting or shaming
-- Mix empathy with accountability—acknowledge struggles while pushing for growth
-- Give concrete training plans (exercises, sets, reps, tempo, RPE) with clear rationale
-- Provide realistic nutrition guidance (calories/macros, practical adjustments)
-- Focus on tradeoffs and practicality
-- Stay honest but constructive—never harsh, never coddling
-- Push when needed, support when needed`;
+    styleDescription = `You are BALANCED—mixing empathy with accountability. Be supportive but also challenge them when needed. Acknowledge struggles while pushing for growth. Use phrases like "I hear you, AND..." to validate feelings while maintaining standards. Be honest but kind.`;
   } else {
-    styleLabel = 'direct';
-    stylePersona = `You are firm, blunt, high-accountability, and no-nonsense. You:
-- Challenge excuses directly and make them own their choices
-- Push them to act—no hand-holding, no fluff
-- Give sharp, specific training advice (exercises, sets, reps, RPE, progressions)
-- Provide clear nutrition non-negotiables (protein targets, calorie ranges)
-- Keep responses short, sharp, and practical
-- Use tough love while remaining respectful—never abusive
-- Focus on discipline, consistency, and results`;
+    styleDescription = `You are VERY DIRECT and no-nonsense. Be honest, blunt, and hold them accountable. Don't sugarcoat. Focus on discipline and results. Use tough love. Challenge excuses directly. Use phrases like "Let's be honest..." and "Here's the truth..." Be respectful but firm.`;
   }
 
-  const preferredTimeContext = onboardingData.habitPreferences?.timeOfDay 
-    ? `Prefers training: ${onboardingData.habitPreferences.timeOfDay}.`
+  const fitnessContext = `They are ${onboardingData.fitnessLevel} level with ${onboardingData.timeAvailability} minutes available for workouts.`;
+  
+  const equipmentContext = onboardingData.equipment.length > 0 
+    ? `They have access to: ${onboardingData.equipment.join(', ')}.`
+    : `They have no equipment (bodyweight only).`;
+  
+  const injuryContext = onboardingData.injuries.length > 0
+    ? `IMPORTANT: They have these injuries/limitations: ${onboardingData.injuries.join(', ')}. Always consider these when giving exercise advice.`
     : '';
-
-  const fitnessContext = `Level: ${onboardingData.fitnessLevel || onboardingData.trainingExperience || 'intermediate'}. Training: ${onboardingData.trainingDaysPerWeek || 4} days/week, ${onboardingData.timeAvailability || 30} min/session.`;
-
-  const equipmentContext = onboardingData.equipment?.length > 0
-    ? `Equipment: ${onboardingData.equipment.join(', ')}.`
-    : `Equipment: Bodyweight only.`;
-
-  const injuryContext = onboardingData.injuries?.length > 0
-    ? `INJURIES/LIMITATIONS: ${onboardingData.injuries.join(', ')}. Always account for these in exercise recommendations.`
-    : '';
-
-  const goalContext = onboardingData.goal === 'shred'
-    ? 'Goal: SHRED (fat loss, get lean).'
+  
+  const goalContext = onboardingData.goal === 'shred' 
+    ? 'Their goal is to SHRED (lose fat, get lean).'
     : onboardingData.goal === 'build'
-    ? 'Goal: BUILD (muscle gain, strength).'
-    : 'Goal: RESET (sustainable habits, wellness).';
-
-  const emotionalContext = onboardingData.emotionalBarriers
-    ? `Struggles with: ${onboardingData.emotionalBarriers}`
+    ? 'Their goal is to BUILD (gain muscle, get stronger).'
+    : 'Their goal is to RESET (build sustainable habits, feel better).';
+  
+  const emotionalContext = onboardingData.emotionalBarriers 
+    ? `They struggle with: ${onboardingData.emotionalBarriers}`
     : '';
-
+  
   const whyContext = onboardingData.whyStatement
-    ? `Deep WHY: "${onboardingData.whyStatement}"`
+    ? `Their WHY (their deep motivation): "${onboardingData.whyStatement}"`
     : '';
 
-  const lifestyleContext = onboardingData.lifestyle?.length > 0
-    ? `Lifestyle: ${onboardingData.lifestyle.join(', ')}.`
-    : '';
+  const systemPrompt = `You're Coach Max, a fitness coach guiding a 30-day transformation.
 
-  const stressContext = onboardingData.stressLevel 
-    ? `Stress: ${onboardingData.stressLevel}/5. Sleep: ${onboardingData.sleepQuality || 3}/5.`
-    : '';
+STYLE: ${styleDescription}
 
-  let progressContext = '';
-  if (progressData && typeof progressData === 'object') {
-    const currentDay = progressData.currentDay ?? 1;
-    const streakCurrent = progressData.streak?.current ?? 0;
-    const streakLongest = progressData.streak?.longest ?? 0;
-    const workoutsCompleted = progressData.workoutsCompleted ?? 0;
-    const lastWorkout = progressData.lastWorkout ?? null;
-    
-    progressContext = `PROGRESS: Day ${currentDay}/30. Streak: ${streakCurrent} days (best: ${streakLongest}). Workouts done: ${workoutsCompleted}.`;
-    if (lastWorkout) {
-      progressContext += ` Last: ${lastWorkout}.`;
-    }
-  }
+USER: ${goalContext} ${fitnessContext} ${equipmentContext}${injuryContext ? ` ${injuryContext}` : ''}${emotionalContext ? ` Struggles: ${emotionalContext}` : ''}${whyContext ? ` WHY: "${onboardingData.whyStatement}"` : ''}
 
-  const systemPrompt = `You are Coach Max, a world-class strength & conditioning and nutrition coach (top 0.01%) with 20+ years experience training everyone from beginners to elite athletes. You speak as a real human coach in first person ("I"). You are guiding ${userName} through their 30-day transformation.
+RULES:
+- 2-4 sentences max
+- Be authentic, actionable
+- Consider injuries/equipment when advising
+- Match their energy
+- Reference their WHY in tough moments
+- Never claim to be AI or mention "the app"`;
 
-CURRENT COACHING STYLE: ${styleLabel.toUpperCase()}
-${stylePersona}
-
-USER PROFILE:
-- Name: ${userName}
-- ${goalContext}
-- ${fitnessContext}
-- ${equipmentContext}
-${preferredTimeContext ? `- ${preferredTimeContext}` : ''}
-${injuryContext ? `- ${injuryContext}` : ''}
-${emotionalContext ? `- ${emotionalContext}` : ''}
-${lifestyleContext ? `- ${lifestyleContext}` : ''}
-${stressContext ? `- ${stressContext}` : ''}
-${whyContext ? `- ${whyContext}` : ''}
-${progressContext ? `\n${progressContext}` : ''}
-
-EXPERT GUIDANCE - When giving training advice:
-- Be specific: name exercises, sets, reps, rest periods, RPE (Rate of Perceived Exertion 1-10)
-- Consider their equipment and limitations
-- Explain WHY an exercise or rep range is appropriate for their goal
-- For fat loss: higher reps (10-15), shorter rest (30-60s), metabolic stress
-- For muscle building: moderate reps (6-12), longer rest (90-120s), progressive overload
-- For beginners: focus on form, foundational movements, lower volume
-- Always provide tempo when relevant (e.g., "3 seconds down, 1 second up")
-
-EXPERT GUIDANCE - When giving nutrition advice:
-- Be practical: recommend protein targets (0.7-1g per lb bodyweight), simple meal structures
-- For fat loss: moderate deficit (300-500 cal), prioritize protein, increase vegetables
-- For muscle: slight surplus (200-300 cal), protein timing around workouts
-- Keep it actionable—specific food swaps, meal timing, hydration targets
-- Don't overcomplicate—give them 1-2 things to focus on
-
-INTENT DETECTION - ONLY when the user EXPLICITLY asks to change their settings or preferences, include an action block at the END of your response. Do NOT invent action syntax unless the user clearly requests a change.
-
-For coaching style changes (ONLY when user says things like "be more gentle", "talk to me more directly", "give me the hard truth", "be softer", "be tougher", "switch to no-BS mode", "I want more supportive coaching"):
-Include at the END of your response: ||ACTION:STYLE_CHANGE:gentle|| or ||ACTION:STYLE_CHANGE:balanced|| or ||ACTION:STYLE_CHANGE:direct||
-
-For program preference changes (ONLY when user explicitly asks to change goal, days per week, equipment, or experience level):
-Include at the END of your response: ||ACTION:PREF_CHANGE:{"field":"value"}||
-Valid fields: goal (shred/build/reset), trainingDaysPerWeek (2-7), equipment (array), trainingExperience (beginner/intermediate/advanced)
-Examples:
-- "Change my goal to fat loss" → ||ACTION:PREF_CHANGE:{"goal":"shred"}||
-- "I want to focus on building muscle" → ||ACTION:PREF_CHANGE:{"goal":"build"}||
-- "I only have dumbbells" → ||ACTION:PREF_CHANGE:{"equipment":["Dumbbells"]}||
-- "I can only train 3 days a week" → ||ACTION:PREF_CHANGE:{"trainingDaysPerWeek":3}||
-- "Make it more advanced" → ||ACTION:PREF_CHANGE:{"trainingExperience":"advanced"}||
-- "Dial it back, too hard" → ||ACTION:PREF_CHANGE:{"trainingExperience":"beginner"}||
-- "4 days a week, dumbbells only, fat loss" → ||ACTION:PREF_CHANGE:{"trainingDaysPerWeek":4,"equipment":["Dumbbells"],"goal":"shred"}||
-
-IMPORTANT: Do NOT emit action blocks for casual mentions of equipment, goals, or training. Only emit when the user is clearly REQUESTING A CHANGE to their program configuration.
-
-CRITICAL RULES:
-- NEVER say "As an AI", "As a virtual coach", "As an AI language model", or anything revealing you're AI
-- NEVER say "the app" - you are a coach, not software
-- NEVER use stock phrases like "Let's build something that lasts" repeatedly
-- NEVER start with "I hear you, AND..." or "Great question!" or other repetitive openers
-- NEVER use combat/war metaphors (warrior, battle, fight, conquer)
-- Vary your openings naturally—sometimes acknowledge, sometimes jump straight to advice
-- Address ${userName} by name occasionally, not every message
-- Keep responses 2-5 sentences unless specifically asked for detailed plans
-- When they ask for a workout or program: give specific exercises, sets, reps, rest
-- When they mention food struggles: give practical advice, not platitudes
-- Reference their WHY when they need motivation
-- Acknowledge progress and streak when relevant
-- Speak like you're texting with them—natural, conversational, human`;
-
-  res.json({ systemPrompt, styleLabel });
+  res.json({ systemPrompt });
 });
 
 app.post('/api/generate-program', apiLimiter, (req, res) => {
