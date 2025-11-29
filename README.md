@@ -118,4 +118,4 @@ For deployment issues:
 1. Check Render build logs
 2. Verify `OPENAI_API_KEY` is set
 3. Test endpoints with curl commands above
-4. Check CORS settings if frontend can't connect
+4. Check CORS settings if the frontend can't connect
