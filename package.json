@@ -2,11 +2,11 @@
   "name": "reforge-backend",
   "version": "1.0.0",
   "description": "Reforge AI Fitness Coach - Production Backend Server",
-  "main": "dist/server/index.js",
+  "main": "server/index.ts",
   "type": "module",
   "scripts": {
-    "start": "node dist/server/index.js",
-    "build": "tsc",
+    "start": "tsx server/index.ts",
+    "build": "echo 'No build needed'",
     "dev": "tsx watch server/index.ts"
   },
   "engines": {
@@ -23,14 +23,5 @@
     "@types/cors": "^2.8.17",
     "@types/node": "^20.10.0",
     "typescript": "^5.3.3"
-  },
-  "keywords": [
-    "fitness",
-    "ai-coach",
-    "backend",
-    "express",
-    "openai"
-  ],
-  "author": "Reforge Team",
-  "license": "PROPRIETARY"
+  }
 }
