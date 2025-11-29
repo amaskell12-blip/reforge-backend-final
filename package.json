@@ -2,10 +2,10 @@
   "name": "reforge-backend",
   "version": "1.0.0",
   "description": "Reforge AI Fitness Coach - Production Backend Server",
-  "main": "server/index.ts",
+  "main": "dist/server/index.js",
   "type": "module",
   "scripts": {
-    "start": "tsx server/index.ts",
+    "start": "node dist/server/index.js",
     "build": "tsc",
     "dev": "tsx watch server/index.ts"
   },
